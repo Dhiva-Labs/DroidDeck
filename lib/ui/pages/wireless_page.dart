@@ -244,12 +244,48 @@ class _WirelessPageState extends ConsumerState<WirelessPage> {
               ),
             ],
           ),
-        ] else if (ips.isNotEmpty) ...[
+        ] else ...[
+          if (ips.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (final raw in ips) _ipRow(raw),
+          ],
           const SizedBox(height: 12),
-          for (final raw in ips) _ipRow(raw),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.shield_outlined,
+                  size: 14, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'TCP debugging stays open on the device until reverted — '
+                  'anyone on the same network can try to connect to port 5555.',
+                  style:
+                      TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                key: const ValueKey('wireless.usb'),
+                onPressed: () => _revertToUsb(serial),
+                icon: const Icon(Icons.usb_off, size: 16),
+                label: const Text('Revert to USB'),
+              ),
+            ],
+          ),
         ],
       ],
     );
+  }
+
+  Future<void> _revertToUsb(String serial) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final out = await ref.read(wirelessServiceProvider).usbMode(serial);
+      messenger.showSnackBar(SnackBar(content: Text(out)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   Widget _ipRow(String raw) {

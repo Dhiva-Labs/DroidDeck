@@ -55,7 +55,9 @@ class TerminalSession extends ChangeNotifier {
       final pty = Pty.start(
         path,
         arguments: ['-s', s, 'shell'],
-        environment: sanitizedEnv(),
+        // TERM is unset when launched from a .desktop entry; without it the
+        // device-side pty defaults to dumb and top/vi render garbage.
+        environment: sanitizedEnv(extra: {'TERM': 'xterm-256color'}),
         columns: terminal.viewWidth,
         rows: terminal.viewHeight,
       );

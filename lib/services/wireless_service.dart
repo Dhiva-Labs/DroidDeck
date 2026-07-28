@@ -38,6 +38,18 @@ class WirelessService {
 
   WirelessService(this._adb);
 
+  /// Restarts adbd on [serial] back in USB-only mode, closing the TCP port
+  /// that `tcpip` opened.
+  Future<String> usbMode(String serial) async {
+    final r = await _adb.run(['usb'],
+        serial: serial, timeout: const Duration(seconds: 10));
+    final text = r.out.isEmpty ? r.error : r.out;
+    if (!r.ok && !text.contains('restarting in USB mode')) {
+      throw AdbException(text.isEmpty ? 'adb usb failed' : text);
+    }
+    return text;
+  }
+
   /// Restarts adbd on [serial] listening over TCP on [port] (default 5555).
   /// The device must currently be reachable (typically over USB).
   Future<String> enableTcpip(String serial, {int port = 5555}) async {
