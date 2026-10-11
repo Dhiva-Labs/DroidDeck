@@ -13,7 +13,9 @@
 #
 # See packaging/SNAP.md for the build and publish procedure, and for what
 # strict confinement costs this application.
-name: droiddeck
+# The store reserves "droiddeck" and "droid-deck", so the snap is published
+# as adb-deck; the app keeps its DroidDeck title.
+name: adb-deck
 title: DroidDeck
 base: core24
 version: '1.0.1'
@@ -37,18 +39,18 @@ description: |
   confined snap it reaches USB devices only through an interface that must
   be connected once after install:
 
-    sudo snap connect droiddeck:adb-support
+    sudo snap connect adb-deck:adb-support
 
   Then unplug and replug the phone if it was already connected. If it is
   still not detected, its USB vendor is probably missing from that
   interface's list; connect the broader one as well:
 
-    sudo snap connect droiddeck:raw-usb
+    sudo snap connect adb-deck:raw-usb
 
   Pulled files, screenshots and recordings go to folders in your home
   directory. To use them on removable drives as well:
 
-    sudo snap connect droiddeck:removable-media
+    sudo snap connect adb-deck:removable-media
 
   Things that differ from a normal install: the phone is asked to authorise
   this computer separately from any adb you run outside the snap; devices on
@@ -57,7 +59,7 @@ description: |
   scrcpy, which is not part of this snap.
 
   The adb server keeps running after you close the window. Stop it with
-  `droiddeck.adb kill-server`; `droiddeck.adb` is the same adb the app uses.
+  `adb-deck.adb kill-server`; `adb-deck.adb` is the same adb the app uses.
 
   A Dhiva Labs project.
 
@@ -74,7 +76,7 @@ platforms:
   amd64:
 
 apps:
-  droiddeck:
+  adb-deck:
     command: droid_deck
     # The `gnome` extension supplies the GTK3/GLib/Wayland/X11 platform via
     # a content snap, the `desktop-launch` command-chain wrapper, and
@@ -83,10 +85,10 @@ apps:
     # for readability and snapcraft de-duplicates them.
     extensions:
       - gnome
-    desktop: usr/share/applications/droiddeck.desktop
+    desktop: usr/share/applications/adb-deck.desktop
     # The app writes pulled files, screenshots and recordings to
     # $HOME/Downloads, $HOME/Pictures and $HOME/Videos. Left alone, snapd
-    # points $HOME at ~/snap/droiddeck/<rev>, so those folders would be
+    # points $HOME at ~/snap/adb-deck/<rev>, so those folders would be
     # buried there. XDG_*_HOME stay inside the snap, which is where
     # shared_preferences wants them. The bundled adb is started through a
     # wrapper that gives it the private $HOME it needs (snap/local/adb-wrapper).
@@ -114,7 +116,7 @@ apps:
       - opengl
       - gsettings
 
-  # The same adb the app runs, for `droiddeck.adb kill-server` and for use
+  # The same adb the app runs, for `adb-deck.adb kill-server` and for use
   # from a terminal.
   adb:
     command: usr/bin/adb
@@ -173,8 +175,8 @@ parts:
     plugin: dump
     source: snap/gui
     organize:
-      droiddeck.desktop: usr/share/applications/droiddeck.desktop
+      adb-deck.desktop: usr/share/applications/adb-deck.desktop
       droiddeck.png: usr/share/icons/hicolor/256x256/apps/droiddeck.png
     stage:
-      - usr/share/applications/droiddeck.desktop
+      - usr/share/applications/adb-deck.desktop
       - usr/share/icons/hicolor/256x256/apps/droiddeck.png

@@ -10,7 +10,7 @@ approved: a revision waiting in review blocks every later release of the snap
 ## Build
 
 ```bash
-snapcraft pack --use-lxd        # -> droiddeck_<version>_amd64.snap
+snapcraft pack --use-lxd        # -> adb-deck_<version>_amd64.snap
 ```
 
 * The Flutter SDK is cloned (stable channel) inside the build container, so
@@ -30,8 +30,8 @@ snapcraft pack --use-lxd        # -> droiddeck_<version>_amd64.snap
 ## Publish
 
 ```bash
-snapcraft register droiddeck                        # once
-snapcraft upload --release=stable droiddeck_1.0.1_amd64.snap
+snapcraft register adb-deck                         # once
+snapcraft upload --release=stable adb-deck_1.0.1_amd64.snap
 ```
 
 Bump `version` in `snap/snapcraft.yaml` together with `pubspec.yaml`.
@@ -42,9 +42,9 @@ None of these is auto-connected, so the store description tells users to run
 them once after install:
 
 ```bash
-sudo snap connect droiddeck:adb-support       # USB access to the phone (required for USB)
-sudo snap connect droiddeck:raw-usb           # only if the phone is still not detected
-sudo snap connect droiddeck:removable-media   # only to reach files on removable drives
+sudo snap connect adb-deck:adb-support       # USB access to the phone (required for USB)
+sudo snap connect adb-deck:raw-usb           # only if the phone is still not detected
+sudo snap connect adb-deck:removable-media   # only to reach files on removable drives
 ```
 
 Unplug and replug a phone that was already connected.
@@ -87,8 +87,8 @@ entry (Ubuntu 24.04's 34.0.4). Three details matter:
   `HOME` at `$SNAP_USER_COMMON` (shared across revisions, so a refresh does
   not make the phone ask again).
 
-`droiddeck.adb` is exposed as a second app: the same adb, for
-`droiddeck.adb kill-server` and for use from a terminal.
+`adb-deck.adb` is exposed as a second app: the same adb, for
+`adb-deck.adb kill-server` and for use from a terminal.
 
 Google's platform-tools zip was not used: the Android SDK licence does not
 clearly allow redistributing it, whereas the archive build is Apache-2.0
@@ -112,7 +112,7 @@ source rebuilt by Ubuntu.
 * **The adb server outlives the window.** adb forks a background server that
   stays in the snap's cgroup scope, so snapd counts the snap as running and
   may postpone an automatic refresh until it is gone;
-  `droiddeck.adb kill-server` stops it.
+  `adb-deck.adb kill-server` stops it.
 * **Existing host adb server.** If an adb server already runs on the host at
   port 5037, the app talks to that one over localhost; the snap's adb only
   starts its own when none is listening.
@@ -122,13 +122,13 @@ source rebuilt by Ubuntu.
 ## Test locally
 
 ```bash
-sudo snap install --dangerous ./droiddeck_1.0.1_amd64.snap
-sudo snap connect droiddeck:adb-support
-droiddeck.adb version                # Android Debug Bridge version 1.0.41 (34.0.4-debian)
-droiddeck
+sudo snap install --dangerous ./adb-deck_1.0.1_amd64.snap
+sudo snap connect adb-deck:adb-support
+adb-deck.adb version                # Android Debug Bridge version 1.0.41 (34.0.4-debian)
+adb-deck
 ```
 
 Without a phone, a throwaway fake `adbd` (a few dozen lines of Python that
 answers the CNXN handshake and `shell:` services on a loopback port,
-attached with `droiddeck.adb connect 127.0.0.1:<port>`) is enough to exercise
+attached with `adb-deck.adb connect 127.0.0.1:<port>`) is enough to exercise
 the device page, logcat and the pty shell under confinement.

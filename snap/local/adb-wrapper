@@ -5,7 +5,7 @@
 # variable so a snap-packaged Flutter SDK cannot poison host tools), which
 # would leave this adb unable to find the libraries staged next to it. The
 # wrapper restores exactly the paths adb needs, so it works whether it is run
-# by the app, as `droiddeck.adb`, or from `snap run --shell`.
+# by the app, as `adb-deck.adb`, or from `snap run --shell`.
 set -e
 
 : "${SNAP:=$(cd "$(dirname "$0")/../.." && pwd)}"
