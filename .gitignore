@@ -49,3 +49,6 @@ PLAN.md
 
 # Packaging output
 /dist/
+
+# Snap build output
+*.snap

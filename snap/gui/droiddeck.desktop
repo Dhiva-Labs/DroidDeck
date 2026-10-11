@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DroidDeck
+Comment=ADB command center for your Linux desktop
+Exec=droiddeck
+Icon=${SNAP}/usr/share/icons/hicolor/256x256/apps/droiddeck.png
+Terminal=false
+Categories=Development;Utility;
+Keywords=adb;android;logcat;scrcpy;device;debug;
+StartupWMClass=com.dhivalabs.droid_deck

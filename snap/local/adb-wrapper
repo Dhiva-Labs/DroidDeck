@@ -1,0 +1,30 @@
+#!/bin/sh
+# Launcher for the adb binary staged in this snap.
+#
+# DroidDeck starts every adb with LD_LIBRARY_PATH removed (it scrubs the
+# variable so a snap-packaged Flutter SDK cannot poison host tools), which
+# would leave this adb unable to find the libraries staged next to it. The
+# wrapper restores exactly the paths adb needs, so it works whether it is run
+# by the app, as `droiddeck.adb`, or from `snap run --shell`.
+set -e
+
+: "${SNAP:=$(cd "$(dirname "$0")/../.." && pwd)}"
+triplet="${SNAP_LAUNCHER_ARCH_TRIPLET:-x86_64-linux-gnu}"
+
+# Debian's android-lib* packages install under .../android, which adb finds
+# through an absolute RUNPATH that points at the host's /usr/lib, not here.
+LD_LIBRARY_PATH="$SNAP/usr/lib/$triplet/android:$SNAP/usr/lib/$triplet:$SNAP/lib/$triplet${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH
+
+# adb keeps its RSA key (the "Allow USB debugging?" fingerprint) in
+# $HOME/.android. DroidDeck runs with HOME set to the real home directory so
+# that ~/Downloads and ~/Videos are the folders the user sees, but a hidden
+# directory there is off limits to a strictly confined snap, so adb gets the
+# snap's per-user common directory instead, which is shared by every revision
+# so the phone is not asked to authorise this computer again after a refresh.
+if [ -n "${SNAP_USER_COMMON:-}" ]; then
+  HOME="$SNAP_USER_COMMON"
+  export HOME
+fi
+
+exec "$SNAP/usr/lib/android-sdk/platform-tools/adb" "$@"

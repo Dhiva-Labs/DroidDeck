@@ -1,0 +1,180 @@
+# Snap Store packaging for DroidDeck.
+#
+# Same shape as the other Dhiva Labs Flutter snaps: `plugin: flutter` + the
+# `gnome` extension under strict confinement, built from source inside LXD.
+# It differs in two ways:
+#
+#   * base core24, not core22. Wireless pairing needs `adb pair`, which
+#     arrived in platform-tools 30; Ubuntu 22.04 ships adb 29.0.6, 24.04
+#     ships 34.0.4.
+#   * adb is staged inside the snap, because a confined app cannot run the
+#     host's binary. It is the Ubuntu archive build, which has no mDNS
+#     backend, so the app's network discovery list stays empty.
+#
+# See packaging/SNAP.md for the build and publish procedure, and for what
+# strict confinement costs this application.
+name: droiddeck
+title: DroidDeck
+base: core24
+version: '1.0.1'
+summary: ADB command center for your Linux desktop
+description: |
+  DroidDeck is a Linux desktop GUI around adb: a live device dashboard,
+  logcat viewer, app manager, device file explorer, screen tools, wireless
+  debugging and a real interactive shell, for the things you reach for
+  constantly while shipping an Android app.
+
+  Features include live device tracking with Android version, battery,
+  resolution and IP details; logcat in a 50,000-line ring buffer with
+  priority, tag, text and package filters; an app manager to launch,
+  force-stop, clear, uninstall, install APKs by drag and drop and extract
+  base and split APKs; a device file explorer with drag-and-drop push and
+  checksum-verified pull; screenshots and screen recordings; Android 11+
+  wireless pairing, tcpip mode and saved devices; and an xterm-style adb
+  shell with a quick-actions grid.
+
+  adb ships inside the snap, so nothing else needs installing. As a strictly
+  confined snap it reaches USB devices only through an interface that must
+  be connected once after install:
+
+    sudo snap connect droiddeck:adb-support
+
+  Then unplug and replug the phone if it was already connected. If it is
+  still not detected, its USB vendor is probably missing from that
+  interface's list; connect the broader one as well:
+
+    sudo snap connect droiddeck:raw-usb
+
+  Pulled files, screenshots and recordings go to folders in your home
+  directory. To use them on removable drives as well:
+
+    sudo snap connect droiddeck:removable-media
+
+  Things that differ from a normal install: the phone is asked to authorise
+  this computer separately from any adb you run outside the snap; devices on
+  the network are not discovered automatically, so enter the address and port
+  shown on the phone for wireless debugging; and screen mirroring needs
+  scrcpy, which is not part of this snap.
+
+  The adb server keeps running after you close the window. Stop it with
+  `droiddeck.adb kill-server`; `droiddeck.adb` is the same adb the app uses.
+
+  A Dhiva Labs project.
+
+grade: stable
+confinement: strict
+icon: snap/gui/droiddeck.png
+license: MIT
+website: https://github.com/Dhiva-Labs/DroidDeck
+source-code: https://github.com/Dhiva-Labs/DroidDeck
+issues: https://github.com/Dhiva-Labs/DroidDeck/issues
+contact: dhivakar1010@gmail.com
+
+platforms:
+  amd64:
+
+apps:
+  droiddeck:
+    command: droid_deck
+    # The `gnome` extension supplies the GTK3/GLib/Wayland/X11 platform via
+    # a content snap, the `desktop-launch` command-chain wrapper, and
+    # font/theme/icon handling. It also injects the desktop, desktop-legacy,
+    # gsettings, opengl, wayland and x11 plugs; the ones repeated below are
+    # for readability and snapcraft de-duplicates them.
+    extensions:
+      - gnome
+    desktop: usr/share/applications/droiddeck.desktop
+    # The app writes pulled files, screenshots and recordings to
+    # $HOME/Downloads, $HOME/Pictures and $HOME/Videos. Left alone, snapd
+    # points $HOME at ~/snap/droiddeck/<rev>, so those folders would be
+    # buried there. XDG_*_HOME stay inside the snap, which is where
+    # shared_preferences wants them. The bundled adb is started through a
+    # wrapper that gives it the private $HOME it needs (snap/local/adb-wrapper).
+    environment:
+      HOME: $SNAP_REAL_HOME
+    plugs:
+      - home
+      - removable-media
+      - network
+      - network-bind
+      # USB access to the phone. Neither is auto-connected: both are
+      # `deny-auto-connection` in snapd's base declaration, so the user runs
+      # `snap connect` once (documented in the description). adb-support is
+      # the one that matters: it opens /dev/bus/usb for the Android vendor
+      # IDs and, while connected, makes those device nodes world-accessible
+      # so no host udev rule is needed. raw-usb is the fallback for a vendor
+      # that list lacks; it adds sysfs and every USB device node.
+      - adb-support
+      - raw-usb
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - unity7
+      - opengl
+      - gsettings
+
+  # The same adb the app runs, for `droiddeck.adb kill-server` and for use
+  # from a terminal.
+  adb:
+    command: usr/bin/adb
+    plugs:
+      - home
+      - removable-media
+      - network
+      - network-bind
+      - adb-support
+      - raw-usb
+
+parts:
+  droiddeck:
+    plugin: flutter
+    source: .
+    flutter-target: lib/main.dart
+    # `source: .` copies the working tree verbatim. A build/ directory left
+    # by a host-side `flutter build linux` carries a CMakeCache.txt naming
+    # host paths, and CMake refuses to reuse a cache generated elsewhere.
+    override-pull: |
+      craftctl default
+      rm -rf build .dart_tool .flutter .pub-cache dist parts prime stage \
+        linux/flutter/ephemeral
+    # The flutter plugin fetches the SDK but not the GTK toolchain the Linux
+    # desktop target compiles against.
+    build-packages:
+      - clang
+      - cmake
+      - ninja-build
+      - pkg-config
+      - libgtk-3-dev
+      - liblzma-dev
+      - curl
+      - unzip
+      - xz-utils
+      - git
+
+  adb:
+    plugin: nil
+    source: snap/local
+    stage-packages:
+      - adb
+    # The app launches adb with LD_LIBRARY_PATH stripped, and Debian's adb
+    # finds its android-lib* libraries through an absolute RUNPATH that
+    # points outside the snap. The package installs usr/bin/adb as a symlink
+    # to usr/lib/android-sdk/platform-tools/adb; replace the symlink with a
+    # wrapper that restores the library path. usr/bin is on the snap's PATH,
+    # which is where the app's `which adb` finds it.
+    override-build: |
+      craftctl default
+      rm -f "$CRAFT_PART_INSTALL/usr/bin/adb"
+      install -m 0755 adb-wrapper "$CRAFT_PART_INSTALL/usr/bin/adb"
+
+  desktop-assets:
+    # The launcher entry and icon, kept beside the snap metadata.
+    plugin: dump
+    source: snap/gui
+    organize:
+      droiddeck.desktop: usr/share/applications/droiddeck.desktop
+      droiddeck.png: usr/share/icons/hicolor/256x256/apps/droiddeck.png
+    stage:
+      - usr/share/applications/droiddeck.desktop
+      - usr/share/icons/hicolor/256x256/apps/droiddeck.png
