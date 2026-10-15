@@ -61,8 +61,8 @@ constantly while shipping an Android app, without leaving a GUI.
 **.deb (Debian/Ubuntu), x86-64 and ARM64:**
 
 ```sh
-sudo dpkg -i droiddeck_1.0.1_amd64.deb    # x86-64
-sudo dpkg -i droiddeck_1.0.1_arm64.deb    # ARM64 (aarch64)
+sudo dpkg -i droiddeck_1.0.2_amd64.deb    # x86-64
+sudo dpkg -i droiddeck_1.0.2_arm64.deb    # ARM64 (aarch64)
 ```
 
 Build the package yourself with `packaging/build_deb.sh` (see below), or grab
