@@ -1,5 +1,8 @@
 # DroidDeck
 
+[![ARM64 builds](https://github.com/Dhiva-Labs/DroidDeck/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Dhiva-Labs/DroidDeck/actions/workflows/ci.yml)
+![Linux x64 | arm64](https://img.shields.io/badge/Linux-x64%20%7C%20arm64-informational?logo=linux&logoColor=white)
+
 **An ADB command center for your Linux desktop.**
 
 ![DroidDeck — Devices tab](docs/screenshots/devices.png)
@@ -45,7 +48,7 @@ constantly while shipping an Android app, without leaving a GUI.
 
 ## Requirements
 
-- Linux
+- Linux, x86-64 or ARM64
 - [`adb`](https://developer.android.com/tools/adb) — part of Android
   platform-tools. DroidDeck looks for it via a Settings override, then
   `$PATH`, then common SDK install locations (e.g.
@@ -55,14 +58,16 @@ constantly while shipping an Android app, without leaving a GUI.
 
 ## Install
 
-**.deb (Debian/Ubuntu):**
+**.deb (Debian/Ubuntu), x86-64 and ARM64:**
 
 ```sh
-sudo dpkg -i droiddeck_1.0.0_amd64.deb
+sudo dpkg -i droiddeck_1.0.1_amd64.deb    # x86-64
+sudo dpkg -i droiddeck_1.0.1_arm64.deb    # ARM64 (aarch64)
 ```
 
 Build the package yourself with `packaging/build_deb.sh` (see below), or grab
-a prebuilt one from this repo's Releases page.
+a prebuilt one from this repo's Releases page. The script builds the package
+for the architecture of the machine it runs on.
 
 **Build from source:**
 
@@ -71,8 +76,10 @@ flutter pub get
 flutter build linux --release
 ```
 
-The bundle is written to `build/linux/x64/release/bundle/` — run `droid_deck`
-inside it.
+The bundle is written to `build/linux/x64/release/bundle/` on an x86-64
+machine and to `build/linux/arm64/release/bundle/` on an ARM64 one — run
+`droid_deck` inside it. Flutter cannot cross-compile the Linux desktop target,
+so build on a machine of the architecture you want.
 
 ## Wireless debugging: connecting a phone
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds droiddeck_<version>_amd64.deb from the Linux release bundle.
+# Builds droiddeck_<version>_<arch>.deb from the Linux release bundle, for the
+# architecture of the machine it runs on (amd64 or arm64).
 #
 # Run from the repo root after `flutter build linux --release`:
 #
@@ -14,7 +15,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 OUT_DIR="${1:-dist}"
-BUNDLE=build/linux/x64/release/bundle
+DEB_ARCH="$(dpkg --print-architecture)"
+case "$DEB_ARCH" in
+  amd64) FLUTTER_ARCH=x64 ;;
+  arm64) FLUTTER_ARCH=arm64 ;;
+  *)
+    echo "error: unsupported architecture '$DEB_ARCH' (amd64 or arm64)" >&2
+    exit 1
+    ;;
+esac
+BUNDLE="build/linux/$FLUTTER_ARCH/release/bundle"
 ICON_DIR=assets/icon
 ICON_SIZES="16 32 48 64 128 256 512"
 VERSION="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)"
@@ -88,7 +98,7 @@ Package: droiddeck
 Version: ${VERSION}
 Section: devel
 Priority: optional
-Architecture: amd64
+Architecture: ${DEB_ARCH}
 Maintainer: Dhiva Labs <dhivakar101010@gmail.com>
 Installed-Size: ${INSTALLED_SIZE}
 Depends: libgtk-3-0t64 | libgtk-3-0
@@ -113,6 +123,6 @@ find "$PKG" -type f -exec chmod 0644 {} +
 chmod 0755 "$PKG/usr/bin/droiddeck" "$PKG/usr/lib/droiddeck/droid_deck"
 
 mkdir -p "$OUT_DIR"
-DEB="$OUT_DIR/droiddeck_${VERSION}_amd64.deb"
+DEB="$OUT_DIR/droiddeck_${VERSION}_${DEB_ARCH}.deb"
 dpkg-deb --build --root-owner-group "$PKG" "$DEB" >/dev/null
 echo "built $DEB"
