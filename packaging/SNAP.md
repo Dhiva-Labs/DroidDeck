@@ -10,8 +10,15 @@ approved: a revision waiting in review blocks every later release of the snap
 ## Build
 
 ```bash
-snapcraft pack --use-lxd        # -> adb-deck_<version>_amd64.snap
+snapcraft pack --use-lxd        # -> adb-deck_<version>_<arch>.snap
 ```
+
+The snap builds for `amd64` and `arm64` (`platforms:` in `snapcraft.yaml`).
+Build on a machine of the architecture you want: snapcraft builds for the
+host's architecture by default, and the Flutter engine is not cross-compiled.
+The CI workflow does exactly that on a native runner for each architecture
+and keeps both snaps as workflow artifacts (`snap-amd64`, `snap-arm64`); it
+never uploads to the store.
 
 * The Flutter SDK is cloned (stable channel) inside the build container, so
   the first build needs network and takes a few minutes. If it sits at
@@ -32,7 +39,11 @@ snapcraft pack --use-lxd        # -> adb-deck_<version>_amd64.snap
 ```bash
 snapcraft register adb-deck                         # once
 snapcraft upload --release=stable adb-deck_1.0.1_amd64.snap
+snapcraft upload --release=stable adb-deck_1.0.1_arm64.snap
 ```
+
+Upload both files of a version: the store keeps one revision per architecture
+under the same channel.
 
 Bump `version` in `snap/snapcraft.yaml` together with `pubspec.yaml`.
 
@@ -72,12 +83,15 @@ Unplug and replug a phone that was already connected.
 ## How adb is packaged
 
 A confined app cannot run the host's `adb`, so `adb` is a `stage-packages`
-entry (Ubuntu 24.04's 34.0.4). Three details matter:
+entry (Ubuntu 24.04's 34.0.4, which the archive builds for both amd64 and
+arm64). Three details matter:
 
 * **Wrapper.** The app starts every adb with `LD_LIBRARY_PATH` removed, and
   Debian's adb finds its `android-lib*` libraries through an absolute
   RUNPATH that points outside the snap. `snap/local/adb-wrapper` replaces
-  the `usr/bin/adb` symlink and restores the library path before running
+  the `usr/bin/adb` symlink and restores the library path (the architecture's
+  triplet comes from snapd's `SNAP_LAUNCHER_ARCH_TRIPLET`, so the same wrapper
+  serves amd64 and arm64) before running
   `usr/lib/android-sdk/platform-tools/adb`.
 * **Discovery.** The app runs `which adb`; the snap's `PATH` contains
   `$SNAP/usr/bin`, so it finds the wrapper without any app change.
@@ -122,7 +136,7 @@ source rebuilt by Ubuntu.
 ## Test locally
 
 ```bash
-sudo snap install --dangerous ./adb-deck_1.0.1_amd64.snap
+sudo snap install --dangerous ./adb-deck_1.0.1_$(dpkg --print-architecture).snap
 sudo snap connect adb-deck:adb-support
 adb-deck.adb version                # Android Debug Bridge version 1.0.41 (34.0.4-debian)
 adb-deck

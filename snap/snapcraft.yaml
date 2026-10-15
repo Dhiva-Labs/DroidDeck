@@ -74,6 +74,7 @@ contact: dhivakar1010@gmail.com
 
 platforms:
   amd64:
+  arm64:
 
 apps:
   adb-deck:

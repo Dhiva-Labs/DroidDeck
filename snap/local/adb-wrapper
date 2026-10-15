@@ -9,7 +9,9 @@
 set -e
 
 : "${SNAP:=$(cd "$(dirname "$0")/../.." && pwd)}"
-triplet="${SNAP_LAUNCHER_ARCH_TRIPLET:-x86_64-linux-gnu}"
+# snapd sets SNAP_LAUNCHER_ARCH_TRIPLET; the fallback is for running the
+# wrapper by hand (x86_64-linux-gnu or aarch64-linux-gnu).
+triplet="${SNAP_LAUNCHER_ARCH_TRIPLET:-$(uname -m)-linux-gnu}"
 
 # Debian's android-lib* packages install under .../android, which adb finds
 # through an absolute RUNPATH that points at the host's /usr/lib, not here.
