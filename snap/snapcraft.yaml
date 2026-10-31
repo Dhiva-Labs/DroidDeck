@@ -18,7 +18,7 @@
 name: adb-deck
 title: DroidDeck
 base: core24
-version: '1.0.2'
+version: '1.0.3'
 summary: ADB command center for your Linux desktop
 description: |
   DroidDeck is a Linux desktop GUI around adb: a live device dashboard,

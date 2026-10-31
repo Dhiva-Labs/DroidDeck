@@ -38,8 +38,8 @@ never uploads to the store.
 
 ```bash
 snapcraft register adb-deck                         # once
-snapcraft upload --release=stable adb-deck_1.0.2_amd64.snap
-snapcraft upload --release=stable adb-deck_1.0.2_arm64.snap
+snapcraft upload --release=stable adb-deck_1.0.3_amd64.snap
+snapcraft upload --release=stable adb-deck_1.0.3_arm64.snap
 ```
 
 Upload both files of a version: the store keeps one revision per architecture
@@ -136,7 +136,7 @@ source rebuilt by Ubuntu.
 ## Test locally
 
 ```bash
-sudo snap install --dangerous ./adb-deck_1.0.2_$(dpkg --print-architecture).snap
+sudo snap install --dangerous ./adb-deck_1.0.3_$(dpkg --print-architecture).snap
 sudo snap connect adb-deck:adb-support
 adb-deck.adb version                # Android Debug Bridge version 1.0.41 (34.0.4-debian)
 adb-deck
