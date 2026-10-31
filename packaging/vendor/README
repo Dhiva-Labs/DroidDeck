@@ -1,0 +1,38 @@
+Vendored build inputs for the Ubuntu PPA source package
+========================================================
+
+Launchpad's PPA build farm has no outbound network access, so anything the
+build needs must be shipped inside the source package. The two tarballs here
+are git-ignored (too large for git) and must be in place before building the
+source package. debian/rules extracts them into .flutter/ and .pub-cache/,
+runs `flutter pub get --offline` and `flutter build linux --release --no-pub`,
+and nothing reaches the network.
+
+flutter-3.44.6-linux-slim.tar.xz
+--------------------------------
+A Linux-only slice of the Flutter 3.44.6 stable SDK (x64 engine only), about
+147 MB. It is the same file SecureShell Go ships
+(sha256 3d4277f96e83fc41f946f47ee7320565d77bf8760b36ae4607a8df8641c1e8eb);
+its packaging/vendor/README lists what was pruned from the upstream tarball
+and how to regenerate it for a new Flutter pin. Copy or hard-link it from
+there rather than rebuilding it.
+
+pub-cache-3.44.6.tar.xz
+-----------------------
+The pub.dev packages pinned by pubspec.lock (92 hosted packages) and their
+hashes, about 37 MB. It goes stale whenever pubspec.lock changes: a package
+added or upgraded since it was built makes `flutter pub get --offline` fail
+with "could not find package <name> in cache". Rebuild it before a PPA upload
+that follows a pubspec.lock change:
+
+    S=$(mktemp -d); mkdir "$S/src"
+    git archive HEAD | tar -x -C "$S/src"      # a clean checkout
+    cd "$S/src"
+    PUB_CACHE="$S/cache" flutter pub get --enforce-lockfile
+    cd "$S/cache"
+    tar --exclude='hosted/pub.dev/.cache' --owner=0 --group=0 --sort=name \
+        -cf - hosted hosted-hashes | xz -6 -T0 \
+        > <repo>/packaging/vendor/pub-cache-3.44.6.tar.xz
+
+Rename both tarballs (and FLUTTER_VERSION / FLUTTER_ENGINE_VERSION in
+debian/rules) when the Flutter pin in .github/workflows/ci.yml changes.

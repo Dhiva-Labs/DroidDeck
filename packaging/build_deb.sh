@@ -63,17 +63,11 @@ exec /usr/lib/droiddeck/droid_deck "$@"
 EOF
 chmod 0755 "$PKG/usr/bin/droiddeck"
 
-cat > "$PKG/usr/share/applications/droiddeck.desktop" <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=DroidDeck
-Comment=ADB command center
-Exec=droiddeck
-Icon=droiddeck
-Terminal=false
-Categories=Development;Utility;
-StartupWMClass=droid_deck
-EOF
+# Named after the GTK application id, which is also the window class, so
+# GNOME Shell matches the running window to this launcher (and its icon).
+# debian/ installs the same file for the PPA package.
+install -m 0644 debian/com.dhivalabs.droid_deck.desktop \
+  "$PKG/usr/share/applications/com.dhivalabs.droid_deck.desktop"
 
 for size in $ICON_SIZES; do
   cp "$ICON_DIR/droiddeck_${size}.png" \

@@ -1,0 +1,30 @@
+# Flutter writes these on `flutter pub get`. They hold symlinks and paths
+# into the local ~/.pub-cache, which must not reach Launchpad's builders;
+# debian/rules regenerates them.
+tar-ignore = "linux/flutter/ephemeral"
+tar-ignore = "linux/flutter/generated_plugin_registrant.cc"
+tar-ignore = "linux/flutter/generated_plugin_registrant.h"
+tar-ignore = "linux/flutter/generated_plugins.cmake"
+# Build outputs, package caches and the extracted vendored SDK, all
+# regenerated at build time from packaging/vendor/.
+tar-ignore = "build"
+tar-ignore = ".dart_tool"
+tar-ignore = ".flutter"
+tar-ignore = ".pub-cache"
+tar-ignore = "debian/.home"
+tar-ignore = "dist"
+# The snap is built and published separately (see packaging/SNAP.md).
+tar-ignore = "snap"
+tar-ignore = "parts"
+tar-ignore = "stage"
+tar-ignore = "prime"
+tar-ignore = "*.snap"
+# Local files git ignores: session notes, editor and tool state.
+tar-ignore = "PLAN.md"
+tar-ignore = ".claude"
+tar-ignore = ".idea"
+tar-ignore = ".vscode"
+tar-ignore = "*.iml"
+tar-ignore = "*.log"
+tar-ignore = ".git"
+tar-ignore = "debian/files"

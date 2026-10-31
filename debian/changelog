@@ -1,0 +1,10 @@
+droiddeck (1.0.3~noble1) noble; urgency=medium
+
+  * First upload to the Dhiva Labs PPA.
+  * Files tab: rename files and folders. A name that is already taken is
+    refused rather than overwritten, and a case-only change works on the
+    case-insensitive /sdcard.
+  * The New folder and Rename dialogs reject a name that contains "/" or is
+    "." or "..".
+
+ -- Dhiva Labs <dhivakar1010@gmail.com>  Sun, 01 Nov 2026 05:07:07 +0530

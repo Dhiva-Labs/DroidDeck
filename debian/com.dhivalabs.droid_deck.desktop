@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DroidDeck
+Comment=ADB command center
+Exec=droiddeck
+Icon=droiddeck
+Terminal=false
+Categories=Development;Utility;
+Keywords=adb;android;logcat;scrcpy;device;debug;
+StartupWMClass=com.dhivalabs.droid_deck
