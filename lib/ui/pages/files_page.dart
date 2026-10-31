@@ -40,42 +40,96 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
   void _navigate(String path) => setState(() => _path = path);
 
-  Future<void> _newFolder() async {
-    final ctrl = TextEditingController();
-    final name = await showDialog<String>(
+  /// Asks for a file or folder name; null when cancelled. The confirm
+  /// button stays disabled until the (trimmed) name is valid.
+  Future<String?> _askName({
+    required String title,
+    required String label,
+    required String action,
+    required Key fieldKey,
+    required Key confirmKey,
+    String initial = '',
+    int? selectEnd,
+  }) {
+    final ctrl = TextEditingController(text: initial)
+      ..selection = TextSelection(
+          baseOffset: 0, extentOffset: selectEnd ?? initial.length);
+    String? error(String v) =>
+        v.trim().isEmpty ? null : entryNameError(v.trim());
+    return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New folder'),
-        content: TextField(
-          key: const ValueKey('files.newFolderName'),
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Folder name'),
-          onSubmitted: (v) => Navigator.of(context).pop(v),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel')),
-          FilledButton(
-              key: const ValueKey('files.newFolderCreate'),
-              onPressed: () => Navigator.of(context).pop(ctrl.text),
-              child: const Text('Create')),
-        ],
+      builder: (context) => ValueListenableBuilder<TextEditingValue>(
+        valueListenable: ctrl,
+        builder: (context, value, _) {
+          final valid = entryNameError(value.text.trim()) == null;
+          void submit() {
+            if (valid) Navigator.of(context).pop(value.text.trim());
+          }
+
+          return AlertDialog(
+            title: Text(title),
+            content: TextField(
+              key: fieldKey,
+              controller: ctrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                  labelText: label, errorText: error(value.text)),
+              onSubmitted: (_) => submit(),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  key: confirmKey,
+                  onPressed: valid ? submit : null,
+                  child: Text(action)),
+            ],
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _newFolder() async {
+    final name = await _askName(
+      title: 'New folder',
+      label: 'Folder name',
+      action: 'Create',
+      fieldKey: const ValueKey('files.newFolderName'),
+      confirmKey: const ValueKey('files.newFolderCreate'),
+    );
     final serial = _serial;
-    if (serial == null || name == null || name.trim().isEmpty || !mounted) {
-      return;
-    }
+    if (serial == null || name == null || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref
-          .read(fileExplorerProvider)
-          .mkdir(serial, _path, name.trim());
+      await ref.read(fileExplorerProvider).mkdir(serial, _path, name);
       _refresh();
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _rename(FsEntry e) async {
+    // Preselect the name without its extension, like desktop file managers.
+    final dot = e.isDir ? -1 : e.name.lastIndexOf('.');
+    final name = await _askName(
+      title: 'Rename',
+      label: 'New name',
+      action: 'Rename',
+      fieldKey: const ValueKey('files.renameName'),
+      confirmKey: const ValueKey('files.renameConfirm'),
+      initial: e.name,
+      selectEnd: dot > 0 ? dot : null,
+    );
+    final serial = _serial;
+    if (serial == null || name == null || name == e.name || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(fileExplorerProvider).rename(serial, _path, e.name, name);
+      _refresh();
+    } catch (err) {
+      messenger.showSnackBar(SnackBar(content: Text('$err')));
     }
   }
 
@@ -331,6 +385,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
             tooltip: 'Actions',
             onSelected: (v) => switch (v) {
               'pull' => _pull(e),
+              'rename' => _rename(e),
               'delete' => _delete(e),
               'copy' => Clipboard.setData(
                   ClipboardData(text: joinDevicePath(_path, e.name))),
@@ -341,6 +396,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                   value: 'pull', child: Text('Pull to ~/Downloads')),
               const PopupMenuItem(
                   value: 'copy', child: Text('Copy device path')),
+              const PopupMenuItem(value: 'rename', child: Text('Rename…')),
               PopupMenuItem(
                 value: 'delete',
                 child: Text('Delete…',

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Files tab: **Rename…** in a file or folder's menu. The dialog preselects the
+  name without its extension. A name that is already taken is refused rather
+  than overwritten. Changing only the case (`IMG.JPG` → `img.jpg`) works on
+  the case-insensitive `/sdcard`.
+
+### Changed
+
+- Files tab: the New folder and Rename dialogs reject a name that contains `/`
+  or is `.` or `..`, and keep the button disabled until the name is valid.
+
 ## 1.0.2
 
 ### Added

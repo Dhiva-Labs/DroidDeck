@@ -36,6 +36,36 @@ class FileExplorerService {
     if (!r.ok) throw AdbException('mkdir failed: ${r.error}');
   }
 
+  /// Renames [from] to [to] inside [dir], refusing to replace an existing
+  /// entry (`mv` would overwrite a file, or move into a folder).
+  Future<void> rename(
+      String serial, String dir, String from, String to) async {
+    final err = entryNameError(to);
+    if (err != null) throw AdbException(err);
+    if (from == to) return;
+    final src = shQuote(joinDevicePath(dir, from));
+    final dst = shQuote(joinDevicePath(dir, to));
+    final cmd = StringBuffer();
+    // On a case-insensitive filesystem (/sdcard) "a" → "A" names the same
+    // entry: toybox mv silently skips a file and fails on a folder, so a
+    // case-only change goes through a temporary name.
+    if (from.toLowerCase() == to.toLowerCase()) {
+      final tmp = shQuote(joinDevicePath(dir, '.droiddeck-rename-'));
+      cmd.write('if [ $src -ef $dst ]; then t=$tmp\$\$; '
+          'mv $src "\$t" && { mv "\$t" $dst || { mv "\$t" $src; exit 1; }; }; '
+          'exit; fi; ');
+    }
+    cmd.write('if [ -e $dst ] || [ -L $dst ]; then '
+        "echo ${shQuote('"$to" already exists')}; exit 1; fi; "
+        'mv $src $dst');
+    final r = await _adb.shell(serial, cmd.toString());
+    // mv is silent on success; devices without the v2 shell protocol
+    // (Android 6 and older) always exit 0, so any output is an error.
+    if (!r.ok || r.out.isNotEmpty) {
+      throw AdbException('rename failed: ${r.error}');
+    }
+  }
+
   Future<void> delete(String serial, String path) async {
     final r = await _adb.shell(serial, 'rm -rf ${shQuote(path)}',
         timeout: const Duration(minutes: 2));

@@ -25,7 +25,8 @@ constantly while shipping an Android app, without leaving a GUI.
   clear-data, uninstall, streamed APK install (drag-and-drop or file picker),
   and APK extraction that pulls base **and split** APKs.
 - **Files** — a device file explorer with breadcrumb navigation, drag-and-drop
-  push, pull to `~/Downloads`, and byte-for-byte reliable transfers
+  push, pull to `~/Downloads`, new folder, rename, delete, and byte-for-byte
+  reliable transfers
   (checksum-verified push/pull round-trips).
 - **Screen** — one-click screenshot capture, `screenrecord` clips stopped
   SIGINT-safe (so the file always stays playable), and an scrcpy launcher with
