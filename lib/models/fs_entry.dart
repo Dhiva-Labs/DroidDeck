@@ -79,6 +79,16 @@ class FsEntry {
 String joinDevicePath(String dir, String name) =>
     dir == '/' ? '/$name' : '$dir/$name';
 
+/// Why [name] cannot be used as a file or folder name, or null if it can.
+/// Names are taken literally, never as paths.
+String? entryNameError(String name) {
+  if (name.trim().isEmpty) return 'Enter a name';
+  if (name == '.' || name == '..') return '"$name" is not a valid name';
+  if (name.contains('/')) return 'Names cannot contain "/"';
+  if (name.contains('\u0000')) return 'Names cannot contain NUL';
+  return null;
+}
+
 /// Parent of a device path ('/' stays '/').
 String parentDevicePath(String path) {
   if (path == '/' || !path.contains('/')) return '/';

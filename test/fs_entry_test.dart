@@ -72,4 +72,17 @@ drwxr-xr-x 2 root root 4096 2026-07-01 10:00 Download
     expect(humanSize(2048), '2.0 KB');
     expect(humanSize(1234567), '1.2 MB');
   });
+
+  test('entry name validation', () {
+    expect(entryNameError('Movies'), isNull);
+    expect(entryNameError('My file (1).mp4'), isNull);
+    expect(entryNameError(".it's hidden"), isNull);
+    expect(entryNameError(''), isNotNull);
+    expect(entryNameError('   '), isNotNull);
+    expect(entryNameError('.'), isNotNull);
+    expect(entryNameError('..'), isNotNull);
+    expect(entryNameError('a/b'), isNotNull);
+    expect(entryNameError('/abs'), isNotNull);
+    expect(entryNameError('nul\u0000byte'), isNotNull);
+  });
 }
