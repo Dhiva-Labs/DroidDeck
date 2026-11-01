@@ -1,0 +1,70 @@
+# Flatpak manifest for DroidDeck.
+#
+# Like the .rpm, Arch package and AppImage, this repackages the installed
+# tree of the .deb that CI builds (unpacked into packaging/flatpak/tree/ by
+# the workflow), so the Flatpak ships the same binary as every other format
+# instead of a second build inside the sandbox. A Flathub submission needs
+# `tree` swapped for an archive source (release URL + sha256); see README.md
+# in this directory.
+#
+# DroidDeck does everything through adb (and scrcpy for mirroring). The
+# Flatpak does not carry them: /app/bin/adb and /app/bin/scrcpy run the
+# host's with flatpak-spawn --host, so the adb server runs on the host with
+# the host's USB access and udev rules, and the app's own socket to it on
+# 127.0.0.1:5037 works because the sandbox shares the host's network.
+id: com.dhivalabs.droid_deck
+runtime: org.gnome.Platform
+runtime-version: '51'
+sdk: org.gnome.Sdk
+command: droiddeck
+finish-args:
+  # GTK needs a display socket; fallback-x11 covers X11-only desktops.
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  # GPU acceleration for Flutter's renderer.
+  - --device=dri
+  # The adb server on 127.0.0.1:5037 and wireless debugging.
+  - --share=network
+  # adb and scrcpy on the host, through the shims below.
+  - --talk-name=org.freedesktop.Flatpak
+  # Pushed and pulled files, APKs dropped onto the window, screenshots and
+  # recordings (~/Pictures/droiddeck), extracted APKs and logcat exports
+  # (~/Downloads). The host's adb reads and writes these paths, so they must
+  # be the same paths inside and outside the sandbox.
+  - --filesystem=home
+  # USB devices, for an adb picked in Settings (for example the Android
+  # SDK's platform-tools under ~/Android/Sdk), which runs inside the sandbox
+  # and may start its own adb server there.
+  - --device=all
+modules:
+  - name: host-tools
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 host-tool.sh /app/libexec/droiddeck/host-tool
+      - install -d /app/bin && for c in adb scrcpy; do ln -s ../libexec/droiddeck/host-tool /app/bin/$c; done
+    sources:
+      # flatpak-spawn passes no environment by default. The app sets TERM
+      # for the interactive shell (the device-side pty needs it), and adb
+      # honours ANDROID_ADB_SERVER_PORT and ANDROID_SERIAL.
+      - type: script
+        dest-filename: host-tool.sh
+        commands:
+          - exec flatpak-spawn --host ${TERM:+"--env=TERM=$TERM"} ${ANDROID_ADB_SERVER_PORT:+"--env=ANDROID_ADB_SERVER_PORT=$ANDROID_ADB_SERVER_PORT"} ${ANDROID_SERIAL:+"--env=ANDROID_SERIAL=$ANDROID_SERIAL"} "$(basename "$0")" "$@"
+
+  - name: droiddeck
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: tree
+        dest: tree
+      - type: file
+        path: com.dhivalabs.droid_deck.metainfo.xml
+    build-commands:
+      # Flutter finds lib/ and data/ next to its executable.
+      - install -d /app/lib && cp -a tree/usr/lib/droiddeck /app/lib/droiddeck
+      - ln -s ../lib/droiddeck/droid_deck /app/bin/droiddeck
+      - install -Dm644 tree/usr/share/applications/com.dhivalabs.droid_deck.desktop /app/share/applications/com.dhivalabs.droid_deck.desktop
+      - desktop-file-edit --set-icon=com.dhivalabs.droid_deck /app/share/applications/com.dhivalabs.droid_deck.desktop
+      - for s in 16 32 48 64 128 256 512; do install -Dm644 tree/usr/share/icons/hicolor/${s}x${s}/apps/droiddeck.png /app/share/icons/hicolor/${s}x${s}/apps/com.dhivalabs.droid_deck.png; done
+      - install -Dm644 com.dhivalabs.droid_deck.metainfo.xml /app/share/metainfo/com.dhivalabs.droid_deck.metainfo.xml

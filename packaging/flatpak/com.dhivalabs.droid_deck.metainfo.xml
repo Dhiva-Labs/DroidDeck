@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.dhivalabs.droid_deck</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>DroidDeck</name>
+  <summary>ADB command center for Android development</summary>
+  <description>
+    <p>DroidDeck is a desktop GUI around adb and scrcpy: a live device
+      dashboard with socket-based tracking, a logcat viewer with priority, tag,
+      text and package filters, an app manager (install, launch, force-stop,
+      uninstall, base and split APK extract), a device file explorer with
+      drag-and-drop push and pull, screenshot, recording and scrcpy screen
+      tools, wireless adb pairing with saved devices, and a real interactive
+      shell with a quick-actions grid.</p>
+    <p>The Flatpak uses the adb and scrcpy installed on your system (for
+      example the android-tools package), so the adb server and USB access
+      stay with the host.</p>
+  </description>
+  <launchable type="desktop-id">com.dhivalabs.droid_deck.desktop</launchable>
+  <url type="homepage">https://github.com/Dhiva-Labs/DroidDeck</url>
+  <url type="bugtracker">https://github.com/Dhiva-Labs/DroidDeck/issues</url>
+  <developer id="com.dhivalabs">
+    <name>Dhiva Labs</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.0.3" date="2026-10-31"/>
+    <release version="1.0.1" date="2026-07-28"/>
+    <release version="1.0.0" date="2026-07-28"/>
+  </releases>
+</component>

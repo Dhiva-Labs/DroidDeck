@@ -64,3 +64,6 @@ PLAN.md
 /debian/files
 /debian/*.substvars
 /debian/debhelper-build-stamp
+
+# Installed tree the Flatpak job unpacks from the .deb
+/packaging/flatpak/tree/

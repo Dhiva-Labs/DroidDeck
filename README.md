@@ -2,6 +2,7 @@
 
 [![ARM64 builds](https://github.com/Dhiva-Labs/DroidDeck/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Dhiva-Labs/DroidDeck/actions/workflows/ci.yml)
 ![Linux x64 | arm64](https://img.shields.io/badge/Linux-x64%20%7C%20arm64-informational?logo=linux&logoColor=white)
+![Linux: deb | rpm | Arch | AppImage | Flatpak | Snap](https://img.shields.io/badge/Linux-deb%20%7C%20rpm%20%7C%20Arch%20%7C%20AppImage%20%7C%20Flatpak%20%7C%20Snap-informational?logo=linux&logoColor=white)
 
 **An ADB command center for your Linux desktop.**
 
@@ -84,6 +85,42 @@ sudo dpkg -i droiddeck_1.0.3_arm64.deb    # ARM64 (aarch64)
 Build the package yourself with `packaging/build_deb.sh` (see below), or grab
 a prebuilt one from this repo's Releases page. The script builds the package
 for the architecture of the machine it runs on.
+
+**Other distributions, x86-64 and ARM64:** CI builds these from the same
+release build as the `.deb` and attaches them to releases from the next
+release on. They are built on Ubuntu 24.04, so they need a distribution at
+least that new (glibc 2.39): Fedora 40 or later, RHEL/Rocky/Alma 10, openSUSE
+Tumbleweed, current Arch Linux. openSUSE Leap 15 and RHEL 9 are too old. The
+`.rpm` declares the glibc version it needs, so dnf and zypper refuse a system
+that is too old instead of installing an app that cannot start. Unlike the
+`.deb`, which only recommends adb, the `.rpm` and the Arch package depend on
+the distribution's adb (`android-tools`); scrcpy stays optional.
+
+```sh
+# Fedora, RHEL, Rocky, Alma (dnf installs android-tools with it)
+sudo dnf install ./droiddeck-1.0.3-1.x86_64.rpm            # or .aarch64.rpm
+# openSUSE Tumbleweed (the same .rpm; it is not signed)
+sudo zypper install --allow-unsigned-rpm ./droiddeck-1.0.3-1.x86_64.rpm
+# Arch Linux, Manjaro, EndeavourOS
+sudo pacman -U ./droiddeck-1.0.3-1-x86_64.pkg.tar.zst      # or -aarch64
+# AppImage, any glibc distribution with GTK 3 (install adb first)
+chmod +x DroidDeck-1.0.3-x86_64.AppImage && ./DroidDeck-1.0.3-x86_64.AppImage
+# Flatpak (the GNOME 51 runtime comes from Flathub; install adb on the system)
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user ./droiddeck-1.0.3-x86_64.flatpak     # or -aarch64
+flatpak run com.dhivalabs.droid_deck
+```
+
+Each release also carries `droiddeck-bin-<version>-aur.tar.gz`, the PKGBUILD
+and `.SRCINFO` of an AUR `droiddeck-bin` package that repackages the release
+`.deb`. It is not on the AUR yet.
+
+The Flatpak does not carry adb or scrcpy. It runs the ones installed on your
+system (`sudo dnf install android-tools`, `sudo apt install adb`, ...), so the
+adb server, its USB access and your udev rules stay with the system, exactly
+as with the `.deb`. That needs permission to run commands on the host, and
+files you push, pull or install must be in your home directory. See
+[packaging/flatpak/README.md](packaging/flatpak/README.md).
 
 **Build from source:**
 
