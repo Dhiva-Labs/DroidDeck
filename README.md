@@ -59,6 +59,21 @@ constantly while shipping an Android app, without leaving a GUI.
 
 ## Install
 
+**Ubuntu PPA (24.04, x86-64):**
+
+```sh
+sudo add-apt-repository ppa:dhiva-labs/apps
+sudo apt update
+sudo apt install droiddeck
+```
+
+**Snap Store:**
+
+```sh
+sudo snap install adb-deck
+sudo snap connect adb-deck:adb-support
+```
+
 **.deb (Debian/Ubuntu), x86-64 and ARM64:**
 
 ```sh

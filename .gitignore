@@ -52,3 +52,15 @@ PLAN.md
 
 # Snap build output
 *.snap
+
+# Vendored PPA build inputs (see packaging/vendor/README); shipped in the
+# source package, too large for git
+/packaging/vendor/*.tar.xz
+
+# Debian build state
+/debian/.debhelper/
+/debian/droiddeck/
+/debian/.home/
+/debian/files
+/debian/*.substvars
+/debian/debhelper-build-stamp

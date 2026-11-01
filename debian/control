@@ -1,0 +1,32 @@
+Source: droiddeck
+Section: devel
+Priority: optional
+Maintainer: Dhiva Labs <dhivakar1010@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               clang,
+               cmake,
+               ninja-build,
+               pkg-config,
+               libgtk-3-dev,
+               liblzma-dev,
+               xz-utils,
+               git,
+               python3
+Standards-Version: 4.6.2
+Homepage: https://github.com/Dhiva-Labs/DroidDeck
+Rules-Requires-Root: no
+
+Package: droiddeck
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+# DroidDeck drives adb and launches scrcpy; it finds adb on PATH or in the
+# Android SDK and shows a setup hint when neither is there.
+Recommends: adb | android-sdk-platform-tools, scrcpy
+Description: ADB command center for Android development
+ DroidDeck is a Linux desktop GUI around adb and scrcpy: a live device
+ dashboard with socket-based tracking, a logcat viewer with ring-buffered
+ priority/tag/text/package filtering, an app manager (install, launch,
+ force-stop, uninstall, base+split APK extract), a device file explorer with
+ drag-and-drop push/pull and rename, screenshot/recording/scrcpy screen
+ tools, wireless adb pairing with saved devices, and a real interactive shell
+ with a quick-actions grid.

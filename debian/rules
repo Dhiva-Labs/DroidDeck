@@ -1,0 +1,120 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/architecture.mk
+
+# Launchpad's PPA build farm has no outbound network access, so the Flutter
+# SDK and pub cache are vendored under packaging/vendor/ and extracted into
+# build-scoped directories here. See packaging/vendor/README for how the
+# tarballs are produced.
+#
+# The offline steps below are SecureShell Go's (same Flutter pin, same PPA),
+# where each one fixed a Launchpad build that had reached for the network.
+FLUTTER_VERSION := 3.44.6
+FLUTTER_ENGINE_VERSION := 83675ed27633283e7fc296c8bca22e841224c096
+
+# Flutter names the build folder after the CPU: x64 or arm64. The vendored SDK
+# below only carries the x64 engine, so the package is still amd64-only (see
+# Architecture: in debian/control); arm64 needs an arm64 SDK tarball first.
+ifeq ($(DEB_HOST_ARCH),arm64)
+FLUTTER_ARCH := arm64
+else
+FLUTTER_ARCH := x64
+endif
+
+FLUTTER_ROOT := $(CURDIR)/.flutter
+FLUTTER_TARBALL := $(CURDIR)/packaging/vendor/flutter-$(FLUTTER_VERSION)-linux-slim.tar.xz
+PUB_CACHE_TARBALL := $(CURDIR)/packaging/vendor/pub-cache-$(FLUTTER_VERSION).tar.xz
+PKG := $(CURDIR)/debian/droiddeck
+ICON_SIZES := 16 32 48 64 128 256 512
+
+export PATH := $(FLUTTER_ROOT)/bin:$(PATH)
+export HOME := $(CURDIR)/debian/.home
+export PUB_CACHE := $(CURDIR)/.pub-cache
+# Tell the flutter tool which engine artifacts it already has, so it doesn't
+# try to derive the version from a real git history (there isn't one — the
+# vendored SDK ships a minimal .git shim instead).
+export FLUTTER_PREBUILT_ENGINE_VERSION := $(FLUTTER_ENGINE_VERSION)
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	mkdir -p $(HOME)
+	if [ ! -x "$(FLUTTER_ROOT)/bin/flutter" ]; then \
+		rm -rf $(CURDIR)/flutter $(FLUTTER_ROOT); \
+		tar --no-same-owner -xJf $(FLUTTER_TARBALL) -C $(CURDIR); \
+		mv $(CURDIR)/flutter $(FLUTTER_ROOT); \
+	fi
+	if [ ! -d "$(PUB_CACHE)/hosted" ]; then \
+		mkdir -p $(PUB_CACHE); \
+		tar --no-same-owner -xJf $(PUB_CACHE_TARBALL) -C $(PUB_CACHE); \
+	fi
+	$(FLUTTER_ROOT)/bin/flutter --disable-analytics config --no-analytics --no-cli-animations
+	# The vendored SDK's flutter_tools/.dart_tool/package_config.json has
+	# absolute rootUris into the scratch pub cache of the machine that made
+	# the tarball. On any other machine those paths are missing, the tool
+	# reads its own packages as stale and re-resolves them online. Point
+	# every entry at its own stub directory holding a pubspec.yaml (the
+	# check only needs one to exist; the entries must stay distinct, or the
+	# Dart VM rejects the file). The tool runs from its AOT snapshot either
+	# way.
+	python3 -c 'import json,os; \
+		p=".flutter/packages/flutter_tools/.dart_tool/package_config.json"; \
+		d=json.load(open(p)); base=os.path.dirname(p); \
+		stubs=os.path.join(base,"pubstubs"); \
+		[e.update(rootUri="pubstubs/"+e["name"]) or \
+		 os.makedirs(os.path.join(stubs,e["name"],"lib"),exist_ok=True) or \
+		 open(os.path.join(stubs,e["name"],"pubspec.yaml"),"w") \
+		   .write("name: "+e["name"]+chr(10)) \
+		 for e in d["packages"]]; \
+		json.dump(d,open(p,"w"),indent=2)'
+	# dpkg-source keeps mtimes, so a version bump can leave pubspec.yaml
+	# newer than pubspec.lock and make pub re-resolve online.
+	touch pubspec.lock
+	# `resolution: workspace` in vendored pubspecs (pub cache and the SDK's
+	# own packages) makes pub pull those packages' dev dependencies, which
+	# are not vendored. Strip it without moving each file's mtime: a
+	# flutter_tools/pubspec.yaml newer than its lockfile makes the flutter
+	# wrapper rebuild itself with an online `pub upgrade`.
+	find $(PUB_CACHE) $(FLUTTER_ROOT)/packages -name pubspec.yaml \
+		-exec sh -c 'for f; do \
+			touch -r "$$f" "$$f.mtime-stamp"; \
+			sed -i "/^resolution: workspace/d" "$$f"; \
+			touch -r "$$f.mtime-stamp" "$$f"; \
+			rm -f "$$f.mtime-stamp"; \
+		done' - {} +
+	# `flutter pub get`, not `dart pub get`: only the flutter wrapper sets
+	# FLUTTER_ROOT, which resolving the `sdk: flutter` dependencies needs.
+	$(FLUTTER_ROOT)/bin/flutter pub get --offline
+	$(FLUTTER_ROOT)/bin/flutter build linux --release --no-pub
+
+override_dh_auto_test:
+	# The Dart/Flutter test suite needs a Flutter engine, a display and a
+	# device; it runs in CI, not at package build time.
+
+override_dh_dwz:
+	# The Flutter Linux shared libraries and the AOT-compiled application
+	# don't carry .debug_info in the form dwz expects, so dh_dwz fails.
+
+override_dh_strip:
+	# Ship the Flutter engine libraries exactly as Flutter built them.
+
+# The same layout as packaging/build_deb.sh, which builds the .debs attached
+# to GitHub releases: the bundle under /usr/lib/droiddeck, a /usr/bin
+# wrapper, and hicolor icons. The desktop file is named after the GTK
+# application id (com.dhivalabs.droid_deck), which is also the window's
+# class, so GNOME Shell matches the running window to its launcher.
+override_dh_auto_install:
+	mkdir -p $(PKG)/usr/lib/droiddeck
+	cp -a build/linux/$(FLUTTER_ARCH)/release/bundle/. $(PKG)/usr/lib/droiddeck/
+	install -D -m 0755 debian/droiddeck.wrapper $(PKG)/usr/bin/droiddeck
+	install -D -m 0644 debian/com.dhivalabs.droid_deck.desktop \
+		$(PKG)/usr/share/applications/com.dhivalabs.droid_deck.desktop
+	for size in $(ICON_SIZES); do \
+		install -D -m 0644 assets/icon/droiddeck_$$size.png \
+			$(PKG)/usr/share/icons/hicolor/$${size}x$${size}/apps/droiddeck.png; \
+	done
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf .flutter .pub-cache build .dart_tool debian/.home
