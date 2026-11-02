@@ -36,7 +36,8 @@ constantly while shipping an Android app, without leaving a GUI.
   mDNS discovery of devices on the network, and a saved-devices list with
   one-click reconnect.
 - **Shell** — a real interactive terminal (`xterm` + a pty-spawned
-  `adb shell`) alongside a quick-actions grid: navigation keys, rotation,
+  `adb shell`) with copy and paste (Ctrl+C copies a selection, or right-click),
+  alongside a quick-actions grid: navigation keys, rotation,
   density/size presets, and dumpsys shortcuts.
 
 ## Screenshots

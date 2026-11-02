@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
@@ -34,6 +36,46 @@ TerminalTheme _terminalThemeFrom(ColorScheme scheme) => TerminalTheme(
       searchHitForeground: const Color(0xFF000000),
     );
 
+/// Copies the terminal selection; see [_CopySelectionAction].
+class _CopySelectionIntent extends Intent {
+  const _CopySelectionIntent();
+}
+
+/// Disabled while nothing is selected, so a key bound to it (Ctrl+C) falls
+/// through to the shell as the usual interrupt instead of being swallowed.
+class _CopySelectionAction extends Action<_CopySelectionIntent> {
+  _CopySelectionAction(this._hasSelection, this._copy);
+
+  final bool Function() _hasSelection;
+  final Future<void> Function() _copy;
+
+  @override
+  bool isEnabled(_CopySelectionIntent intent) => _hasSelection();
+
+  @override
+  Object? invoke(_CopySelectionIntent intent) => _copy();
+}
+
+/// Replaces xterm's defaults, which send Ctrl+C to the shell even with text
+/// selected and take Ctrl+A (start of line) for select-all. Ctrl+V keeps
+/// pasting; the Shift and Insert variants match other Linux terminals.
+const _terminalShortcuts = <ShortcutActivator, Intent>{
+  SingleActivator(LogicalKeyboardKey.keyC, control: true):
+      _CopySelectionIntent(),
+  SingleActivator(LogicalKeyboardKey.keyC, control: true, shift: true):
+      CopySelectionTextIntent.copy,
+  SingleActivator(LogicalKeyboardKey.insert, control: true):
+      CopySelectionTextIntent.copy,
+  SingleActivator(LogicalKeyboardKey.keyV, control: true):
+      PasteTextIntent(SelectionChangedCause.keyboard),
+  SingleActivator(LogicalKeyboardKey.keyV, control: true, shift: true):
+      PasteTextIntent(SelectionChangedCause.keyboard),
+  SingleActivator(LogicalKeyboardKey.insert, shift: true):
+      PasteTextIntent(SelectionChangedCause.keyboard),
+  SingleActivator(LogicalKeyboardKey.keyA, control: true, shift: true):
+      SelectAllTextIntent(SelectionChangedCause.keyboard),
+};
+
 /// Interactive `adb shell` (left) plus a quick-actions panel (right) for the
 /// globally-selected device.
 class ShellPage extends ConsumerStatefulWidget {
@@ -50,6 +92,18 @@ class _ShellPageState extends ConsumerState<ShellPage> {
   int _rotationQuadrant = 0;
   int? _density;
   String? _size;
+
+  final _terminalController = TerminalController();
+
+  /// Buttons of the last press on the terminal: xterm reports middle clicks
+  /// through the same callback as right clicks.
+  int _pointerButtons = 0;
+
+  @override
+  void dispose() {
+    _terminalController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,10 +218,28 @@ class _ShellPageState extends ConsumerState<ShellPage> {
                       key: const ValueKey('shell.terminal'),
                       color: scheme.surfaceContainerLowest,
                       padding: const EdgeInsets.all(4),
-                      child: TerminalView(
-                        session.terminal,
-                        theme: _terminalThemeFrom(scheme),
-                        autofocus: true,
+                      child: Listener(
+                        onPointerDown: (e) => _pointerButtons = e.buttons,
+                        child: Actions(
+                          actions: {
+                            _CopySelectionIntent: _CopySelectionAction(
+                              () => _terminalController.selection != null,
+                              () => _copySelection(session.terminal),
+                            ),
+                          },
+                          child: TerminalView(
+                            session.terminal,
+                            controller: _terminalController,
+                            theme: _terminalThemeFrom(scheme),
+                            autofocus: true,
+                            shortcuts: _terminalShortcuts,
+                            // On release: a route pushed while the button is
+                            // still down strands xterm's tap recognizer, and
+                            // later right clicks are ignored.
+                            onSecondaryTapUp: (details, _) =>
+                                _showTerminalMenu(session.terminal, details),
+                          ),
+                        ),
                       ),
                     ),
             ),
@@ -175,6 +247,64 @@ class _ShellPageState extends ConsumerState<ShellPage> {
         );
       },
     );
+  }
+
+  /// Copies the selection and clears it, so the next Ctrl+C interrupts.
+  Future<void> _copySelection(Terminal terminal) async {
+    final selection = _terminalController.selection;
+    if (selection == null) return;
+    await Clipboard.setData(
+        ClipboardData(text: terminal.buffer.getText(selection)));
+    _terminalController.clearSelection();
+  }
+
+  Future<void> _paste(Terminal terminal) async {
+    final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+    if (text == null || text.isEmpty) return;
+    terminal.paste(text);
+    _terminalController.clearSelection();
+  }
+
+  /// Right-click menu. Only fires while the device app isn't tracking the
+  /// mouse itself (xterm hands it the click in that case).
+  Future<void> _showTerminalMenu(
+      Terminal terminal, TapUpDetails details) async {
+    if (_pointerButtons & kSecondaryMouseButton == 0) return;
+    final scheme = Theme.of(context).colorScheme;
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    Widget item(String label, String keys) => Row(
+          children: [
+            Expanded(child: Text(label)),
+            const SizedBox(width: 24),
+            Text(keys,
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+          ],
+        );
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+          details.globalPosition & Size.zero, Offset.zero & overlay.size),
+      items: [
+        PopupMenuItem(
+          key: const ValueKey('shell.menu.copy'),
+          value: 'copy',
+          enabled: _terminalController.selection != null,
+          child: item('Copy', 'Ctrl+C'),
+        ),
+        PopupMenuItem(
+          key: const ValueKey('shell.menu.paste'),
+          value: 'paste',
+          child: item('Paste', 'Ctrl+V'),
+        ),
+      ],
+    );
+    switch (choice) {
+      case 'copy':
+        await _copySelection(terminal);
+      case 'paste':
+        await _paste(terminal);
+    }
   }
 
   // ------------------------------------------------------- quick actions --

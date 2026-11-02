@@ -10,6 +10,10 @@
   cancelled". Desktops without an XDG desktop portal, such as many XFCE
   installs, now get GTK's own file dialog instead.
 - Apps tab: cancelling the APK picker no longer opens a typed-path prompt.
+- Shell tab: Ctrl+C copies selected text and still interrupts when nothing
+  is selected, and a right click opens a Copy/Paste menu (#9). Ctrl+Shift+V
+  and Shift+Insert paste, Ctrl+Insert copies. Ctrl+A reaches the shell again
+  (start of line); select all moves to Ctrl+Shift+A.
 
 ## 1.0.3
 
