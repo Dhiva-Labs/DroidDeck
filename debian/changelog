@@ -1,3 +1,16 @@
+droiddeck (1.0.4~noble1) noble; urgency=medium
+
+  * Files tab: Push here opens a file picker. The picker failed silently on
+    every desktop, which also broke the Apps tab's APK picker and the Screen
+    tab's Save. Desktops without an XDG desktop portal get GTK's own dialog.
+  * Apps tab: cancelling the APK picker no longer opens a typed-path prompt.
+  * Shell tab: Ctrl+C copies selected text and still interrupts when nothing
+    is selected; a right click opens a Copy/Paste menu. Ctrl+Shift+V and
+    Shift+Insert paste, Ctrl+Insert copies, and select all moves to
+    Ctrl+Shift+A so Ctrl+A reaches the shell.
+
+ -- Dhiva Labs <dhivakar1010@gmail.com>  Tue, 03 Nov 2026 02:42:54 +0530
+
 droiddeck (1.0.3~noble1) noble; urgency=medium
 
   * First upload to the Dhiva Labs PPA.
