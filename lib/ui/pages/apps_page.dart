@@ -33,46 +33,10 @@ class _AppsPageState extends ConsumerState<AppsPage> {
       title: 'Select APK to install',
       filter: ('Android packages', ['*.apk']),
     );
-    if (paths.isEmpty) {
-      if (mounted) {
-        _manualPathInstall();
-      }
-      return;
-    }
+    // Empty means cancelled: the picker falls back to GTK's own dialog when
+    // no portal answers, so there's no need for a typed-path prompt here.
+    if (paths.isEmpty) return;
     await _install(paths.first);
-  }
-
-  /// Fallback when the portal is unavailable or was cancelled.
-  Future<void> _manualPathInstall() async {
-    final ctrl = TextEditingController();
-    final path = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Install APK'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Path to .apk',
-            hintText: '/home/you/app-release.apk',
-          ),
-          onSubmitted: (v) => Navigator.of(context).pop(v),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(ctrl.text),
-            child: const Text('Install'),
-          ),
-        ],
-      ),
-    );
-    if (path != null && path.trim().isNotEmpty) {
-      await _install(path.trim());
-    }
   }
 
   Future<void> _install(String apkPath) async {

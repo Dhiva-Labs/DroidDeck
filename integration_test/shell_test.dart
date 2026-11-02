@@ -3,9 +3,12 @@ import 'dart:io';
 import 'package:droid_deck/main.dart' as app;
 import 'package:droid_deck/services/adb_service.dart';
 import 'package:droid_deck/services/terminal_session.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:xterm/xterm.dart';
 
 /// Interactive shell (Plan A: xterm + flutter_pty) and quick-actions against
 /// a live emulator (expects emulator-5554 booted).
@@ -78,6 +81,43 @@ Future<void> _ensureAwakeAndHome() async {
   }
 }
 
+/// The terminal's lines with trailing padding trimmed, for exact matches.
+List<String> _lines(Terminal terminal) => [
+      for (var i = 0; i < terminal.buffer.lines.length; i++)
+        terminal.buffer.lines[i].toString().trimRight(),
+    ];
+
+/// Pumps until [check] holds (the pty's output only lands between pumps).
+Future<bool> _pumpUntil(
+  WidgetTester tester,
+  bool Function() check, {
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    if (check()) return true;
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  return check();
+}
+
+/// Selects the whole of buffer line [y], as a mouse drag across it would.
+void _selectLine(TerminalController controller, Terminal terminal, int y) =>
+    controller.setSelection(
+      terminal.buffer.createAnchor(0, y),
+      terminal.buffer.createAnchor(terminal.viewWidth, y),
+    );
+
+Future<void> _ctrlC(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+  await tester.pump();
+}
+
+Future<String?> _clipboardText() async =>
+    (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+
 Future<void> _tap(WidgetTester tester, String key) async {
   final finder = find.byKey(ValueKey(key));
   await tester.ensureVisible(finder);
@@ -131,6 +171,75 @@ void main() {
     expect(find.byKey(const ValueKey('shell.terminal')), findsOneWidget);
 
     try {
+      // --- a2. Clipboard: Ctrl+C copies a selection and interrupts without
+      // one; the right-click menu copies and pastes (issue #9) -------------
+      final view = tester.widget<TerminalView>(find.byType(TerminalView));
+      final term = view.terminal;
+      final ctl = view.controller!;
+      await tester.tap(find.byType(TerminalView)); // focus, no selection
+      await pumpFor(tester, 1.5); // prompt
+
+      term.textInput('echo dd-clip-marker\n');
+      expect(
+          await _pumpUntil(tester, () => _lines(term).contains('dd-clip-marker')),
+          isTrue,
+          reason: 'marker never echoed:\n${_lines(term).join('\n')}');
+
+      // A half-typed command must survive the copy: an interrupt would
+      // discard it, so Enter would print nothing.
+      term.textInput('echo dd-kept');
+      await pumpFor(tester, 0.5);
+      _selectLine(ctl, term, _lines(term).lastIndexOf('dd-clip-marker'));
+      await _ctrlC(tester);
+      expect((await _clipboardText())?.trim(), 'dd-clip-marker');
+      expect(ctl.selection, isNull, reason: 'copy should clear the selection');
+      term.textInput('\n');
+      expect(await _pumpUntil(tester, () => _lines(term).contains('dd-kept')),
+          isTrue,
+          reason: 'Ctrl+C with a selection interrupted the shell:\n'
+              '${_lines(term).join('\n')}');
+
+      // No selection: Ctrl+C is the shell's interrupt again.
+      term.textInput('sleep 30\n');
+      await pumpFor(tester, 1);
+      await _ctrlC(tester);
+      term.textInput('echo dd-after-int\n');
+      expect(
+          await _pumpUntil(tester, () => _lines(term).contains('dd-after-int')),
+          isTrue,
+          reason: 'Ctrl+C without a selection did not interrupt sleep:\n'
+              '${_lines(term).join('\n')}');
+
+      // Right-click without a selection: Copy is disabled, Paste types the
+      // clipboard into the shell.
+      await Clipboard.setData(const ClipboardData(text: 'echo dd-pasted'));
+      await tester.tap(find.byType(TerminalView),
+          buttons: kSecondaryButton, kind: PointerDeviceKind.mouse);
+      await pumpFor(tester, 0.5);
+      expect(
+          tester
+              .widget<PopupMenuItem<String>>(
+                  find.byKey(const ValueKey('shell.menu.copy')))
+              .enabled,
+          isFalse);
+      await tester.tap(find.byKey(const ValueKey('shell.menu.paste')));
+      await pumpFor(tester, 0.5);
+      term.textInput('\n');
+      expect(await _pumpUntil(tester, () => _lines(term).contains('dd-pasted')),
+          isTrue,
+          reason: 'menu Paste did not reach the shell:\n'
+              '${_lines(term).join('\n')}');
+
+      // Right-click with a selection: Copy puts it on the clipboard.
+      _selectLine(ctl, term, _lines(term).lastIndexOf('dd-after-int'));
+      await tester.tap(find.byType(TerminalView),
+          buttons: kSecondaryButton, kind: PointerDeviceKind.mouse);
+      await pumpFor(tester, 0.5);
+      await tester.tap(find.byKey(const ValueKey('shell.menu.copy')));
+      await pumpFor(tester, 0.5);
+      expect((await _clipboardText())?.trim(), 'dd-after-int');
+      debugPrint('[shell_test] clipboard: Ctrl+C copy/interrupt + menu OK');
+
       // --- b(i). Power keyevent visibly toggles wakefulness --------------
       final before = await _wakefulness();
       expect(before, isNotNull, reason: 'could not read mWakefulness');
