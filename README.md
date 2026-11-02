@@ -79,8 +79,8 @@ sudo snap connect adb-deck:adb-support
 **.deb (Debian/Ubuntu), x86-64 and ARM64:**
 
 ```sh
-sudo dpkg -i droiddeck_1.0.3_amd64.deb    # x86-64
-sudo dpkg -i droiddeck_1.0.3_arm64.deb    # ARM64 (aarch64)
+sudo dpkg -i droiddeck_1.0.4_amd64.deb    # x86-64
+sudo dpkg -i droiddeck_1.0.4_arm64.deb    # ARM64 (aarch64)
 ```
 
 Build the package yourself with `packaging/build_deb.sh` (see below), or grab
@@ -99,16 +99,16 @@ the distribution's adb (`android-tools`); scrcpy stays optional.
 
 ```sh
 # Fedora, RHEL, Rocky, Alma (dnf installs android-tools with it)
-sudo dnf install ./droiddeck-1.0.3-1.x86_64.rpm            # or .aarch64.rpm
+sudo dnf install ./droiddeck-1.0.4-1.x86_64.rpm            # or .aarch64.rpm
 # openSUSE Tumbleweed (the same .rpm; it is not signed)
-sudo zypper install --allow-unsigned-rpm ./droiddeck-1.0.3-1.x86_64.rpm
+sudo zypper install --allow-unsigned-rpm ./droiddeck-1.0.4-1.x86_64.rpm
 # Arch Linux, Manjaro, EndeavourOS
-sudo pacman -U ./droiddeck-1.0.3-1-x86_64.pkg.tar.zst      # or -aarch64
+sudo pacman -U ./droiddeck-1.0.4-1-x86_64.pkg.tar.zst      # or -aarch64
 # AppImage, any glibc distribution with GTK 3 (install adb first)
-chmod +x DroidDeck-1.0.3-x86_64.AppImage && ./DroidDeck-1.0.3-x86_64.AppImage
+chmod +x DroidDeck-1.0.4-x86_64.AppImage && ./DroidDeck-1.0.4-x86_64.AppImage
 # Flatpak (the GNOME 51 runtime comes from Flathub; install adb on the system)
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./droiddeck-1.0.3-x86_64.flatpak     # or -aarch64
+flatpak install --user ./droiddeck-1.0.4-x86_64.flatpak     # or -aarch64
 flatpak run com.dhivalabs.droid_deck
 ```
 
