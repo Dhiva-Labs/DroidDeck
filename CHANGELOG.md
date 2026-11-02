@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Files tab: **Push here** opens a file picker (#8). The picker failed
+  silently on every desktop, so the Apps tab's APK picker always fell back to
+  a typed path and the Screen tab's **Save…** always reported "Save
+  cancelled". Desktops without an XDG desktop portal, such as many XFCE
+  installs, now get GTK's own file dialog instead.
+- Apps tab: cancelling the APK picker no longer opens a typed-path prompt.
+
 ## 1.0.3
 
 ### Added

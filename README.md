@@ -25,8 +25,8 @@ constantly while shipping an Android app, without leaving a GUI.
 - **Apps** — package manager with user/system/all views, launch, force-stop,
   clear-data, uninstall, streamed APK install (drag-and-drop or file picker),
   and APK extraction that pulls base **and split** APKs.
-- **Files** — a device file explorer with breadcrumb navigation, drag-and-drop
-  push, pull to `~/Downloads`, new folder, rename, delete, and byte-for-byte
+- **Files** — a device file explorer with breadcrumb navigation, push by
+  drag-and-drop or file picker, pull to `~/Downloads`, new folder, rename, delete, and byte-for-byte
   reliable transfers
   (checksum-verified push/pull round-trips).
 - **Screen** — one-click screenshot capture, `screenrecord` clips stopped

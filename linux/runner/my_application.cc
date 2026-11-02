@@ -10,6 +10,7 @@
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  FlMethodChannel* file_chooser_channel;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -17,6 +18,134 @@ G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+}
+
+// ---- droiddeck/file_chooser ------------------------------------------------
+// lib/services/portal_file_picker.dart asks the XDG desktop portal first and
+// lands here only when no portal answers (XFCE and other desktops often ship
+// without a FileChooser backend), so these are plain in-process GTK dialogs.
+// parentWindow hands the portal our X11 window so its dialog stacks above us.
+
+static const gchar* arg_string(FlValue* args, const char* key,
+                               const gchar* fallback) {
+  FlValue* value = fl_value_get_type(args) == FL_VALUE_TYPE_MAP
+                       ? fl_value_lookup_string(args, key)
+                       : nullptr;
+  return value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_STRING
+             ? fl_value_get_string(value)
+             : fallback;
+}
+
+static gboolean arg_bool(FlValue* args, const char* key) {
+  FlValue* value = fl_value_get_type(args) == FL_VALUE_TYPE_MAP
+                       ? fl_value_lookup_string(args, key)
+                       : nullptr;
+  return value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL &&
+         fl_value_get_bool(value);
+}
+
+static void file_chooser_response_cb(GtkDialog* dialog, gint response_id,
+                                     gpointer user_data) {
+  g_autoptr(FlMethodCall) method_call = FL_METHOD_CALL(user_data);
+  GtkFileChooser* chooser = GTK_FILE_CHOOSER(dialog);
+  const gboolean accepted = response_id == GTK_RESPONSE_ACCEPT;
+
+  // saveFile answers a path or null; openFiles a (possibly empty) list.
+  g_autoptr(FlValue) result = nullptr;
+  if (gtk_file_chooser_get_action(chooser) == GTK_FILE_CHOOSER_ACTION_SAVE) {
+    g_autofree gchar* path =
+        accepted ? gtk_file_chooser_get_filename(chooser) : nullptr;
+    result = path != nullptr ? fl_value_new_string(path) : fl_value_new_null();
+  } else {
+    result = fl_value_new_list();
+    GSList* paths = accepted ? gtk_file_chooser_get_filenames(chooser) : nullptr;
+    for (GSList* p = paths; p != nullptr; p = p->next) {
+      fl_value_append_take(result,
+                           fl_value_new_string(static_cast<gchar*>(p->data)));
+    }
+    g_slist_free_full(paths, g_free);
+  }
+  gtk_widget_destroy(GTK_WIDGET(dialog));
+
+  g_autoptr(FlMethodResponse) response =
+      FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  fl_method_call_respond(method_call, response, nullptr);
+}
+
+static void show_file_chooser(GtkWindow* parent, FlMethodCall* method_call,
+                              gboolean save) {
+  FlValue* args = fl_method_call_get_args(method_call);
+  const GtkFileChooserAction action =
+      save ? GTK_FILE_CHOOSER_ACTION_SAVE
+      : arg_bool(args, "directory") ? GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER
+                                    : GTK_FILE_CHOOSER_ACTION_OPEN;
+  GtkWidget* dialog = gtk_file_chooser_dialog_new(
+      arg_string(args, "title", save ? "Save file" : "Open file"), parent,
+      action, "_Cancel", GTK_RESPONSE_CANCEL, save ? "_Save" : "_Open",
+      GTK_RESPONSE_ACCEPT, nullptr);
+  GtkFileChooser* chooser = GTK_FILE_CHOOSER(dialog);
+  gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+  gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
+  gtk_file_chooser_set_current_folder(chooser, g_get_home_dir());
+
+  if (save) {
+    gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
+    const gchar* name = arg_string(args, "suggestedName", nullptr);
+    if (name != nullptr) {
+      gtk_file_chooser_set_current_name(chooser, name);
+    }
+  } else {
+    gtk_file_chooser_set_select_multiple(chooser, arg_bool(args, "multiple"));
+  }
+
+  FlValue* patterns = fl_value_get_type(args) == FL_VALUE_TYPE_MAP
+                          ? fl_value_lookup_string(args, "filterPatterns")
+                          : nullptr;
+  if (patterns != nullptr && fl_value_get_type(patterns) == FL_VALUE_TYPE_LIST) {
+    GtkFileFilter* filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, arg_string(args, "filterName", ""));
+    for (size_t i = 0; i < fl_value_get_length(patterns); i++) {
+      FlValue* glob = fl_value_get_list_value(patterns, i);
+      if (fl_value_get_type(glob) == FL_VALUE_TYPE_STRING) {
+        gtk_file_filter_add_pattern(filter, fl_value_get_string(glob));
+      }
+    }
+    gtk_file_chooser_add_filter(chooser, filter);
+  }
+
+  g_signal_connect(dialog, "response", G_CALLBACK(file_chooser_response_cb),
+                   g_object_ref(method_call));
+  gtk_widget_show(dialog);
+}
+
+static void file_chooser_method_cb(FlMethodChannel* channel,
+                                   FlMethodCall* method_call,
+                                   gpointer user_data) {
+  GtkWindow* window = GTK_WINDOW(user_data);
+  const gchar* method = fl_method_call_get_name(method_call);
+
+  if (g_strcmp0(method, "openFiles") == 0 ||
+      g_strcmp0(method, "saveFile") == 0) {
+    show_file_chooser(window, method_call,
+                      g_strcmp0(method, "saveFile") == 0);
+    return;
+  }
+
+  g_autoptr(FlMethodResponse) response = nullptr;
+  if (g_strcmp0(method, "parentWindow") == 0) {
+    g_autofree gchar* handle = nullptr;
+#ifdef GDK_WINDOWING_X11
+    GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(window));
+    if (gdk_window != nullptr && GDK_IS_X11_WINDOW(gdk_window)) {
+      handle = g_strdup_printf("x11:%lx", gdk_x11_window_get_xid(gdk_window));
+    }
+#endif
+    g_autoptr(FlValue) result = fl_value_new_string(handle ? handle : "");
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+  fl_method_call_respond(method_call, response, nullptr);
 }
 
 // Sets the window icon from the system hicolor theme if DroidDeck is
@@ -112,6 +241,13 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  self->file_chooser_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "droiddeck/file_chooser", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(
+      self->file_chooser_channel, file_chooser_method_cb, window, nullptr);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -158,6 +294,7 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_object(&self->file_chooser_channel);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
