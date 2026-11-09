@@ -55,10 +55,16 @@ class AppManagerService {
       // split on the last one to be safe.
       final eq = rest.lastIndexOf('=');
       if (eq <= 0) continue;
+      final pkg = rest.substring(eq + 1);
+      // The device chooses this string. A custom ROM or a USB gadget posing
+      // as a phone could report "../../.config/autostart" and have the
+      // extractor drop files there, so anything that is not a package name
+      // is ignored rather than trusted.
+      if (!isValidPackageName(pkg)) continue;
       out.add(AppPackage(
-        package: rest.substring(eq + 1),
+        package: pkg,
         apkPath: rest.substring(0, eq),
-        system: sysSet.contains(rest.substring(eq + 1)),
+        system: sysSet.contains(pkg),
       ));
     }
     out.sort((a, b) => a.package.compareTo(b.package));
@@ -66,6 +72,7 @@ class AppManagerService {
   }
 
   Future<void> launch(String serial, String pkg) async {
+    _requireValid(pkg);
     final r =
         await _adb.shell(serial, 'cmd package resolve-activity --brief $pkg');
     String? component;
@@ -87,11 +94,13 @@ class AppManagerService {
   }
 
   Future<void> forceStop(String serial, String pkg) async {
+    _requireValid(pkg);
     final r = await _adb.shell(serial, 'am force-stop $pkg');
     if (!r.ok) throw AdbException('force-stop failed: ${r.error}');
   }
 
   Future<void> clearData(String serial, String pkg) async {
+    _requireValid(pkg);
     final r = await _adb.shell(serial, 'pm clear $pkg',
         timeout: const Duration(seconds: 60));
     if (!r.ok || !r.stdout.contains('Success')) {
@@ -100,6 +109,7 @@ class AppManagerService {
   }
 
   Future<void> uninstall(String serial, String pkg) async {
+    _requireValid(pkg);
     final r = await _adb.run(['uninstall', pkg],
         serial: serial, timeout: const Duration(seconds: 60));
     if (!r.ok || !r.stdout.contains('Success')) {
@@ -108,6 +118,7 @@ class AppManagerService {
   }
 
   Future<List<String>> apkPaths(String serial, String pkg) async {
+    _requireValid(pkg);
     final r = await _adb.shell(serial, 'pm path $pkg');
     if (!r.ok) throw AdbException('pm path failed: ${r.error}');
     return [
@@ -118,6 +129,7 @@ class AppManagerService {
 
   /// Pulls all APKs (base + splits) for [pkg] into a folder and returns it.
   Future<String> extractApk(String serial, String pkg) async {
+    _requireValid(pkg);
     final paths = await apkPaths(serial, pkg);
     if (paths.isEmpty) throw AdbException('no APK paths for $pkg');
     final home = Platform.environment['HOME'] ?? '.';
@@ -153,5 +165,20 @@ class AppManagerService {
           const Duration(milliseconds: 200), () => ctrl.close());
     });
     return InstallSession(lines: ctrl.stream, exitCode: exit);
+  }
+}
+
+/// Android's own rule for package names: dot-separated Java identifiers.
+/// Enforced on every name the device reports before it is used in a shell
+/// command or a local path.
+final RegExp _packageName =
+    RegExp(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$');
+
+bool isValidPackageName(String pkg) =>
+    pkg.length <= 255 && _packageName.hasMatch(pkg);
+
+void _requireValid(String pkg) {
+  if (!isValidPackageName(pkg)) {
+    throw AdbException('refusing to act on invalid package name "$pkg"');
   }
 }
