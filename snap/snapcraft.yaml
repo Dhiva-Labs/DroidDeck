@@ -67,7 +67,9 @@ grade: stable
 confinement: strict
 icon: snap/gui/droiddeck.png
 license: MIT
-website: https://github.com/Dhiva-Labs/DroidDeck
+website:
+  - https://github.com/Dhiva-Labs/DroidDeck
+  - https://learn.dhivalabs.com/apps/droiddeck/
 source-code: https://github.com/Dhiva-Labs/DroidDeck
 issues: https://github.com/Dhiva-Labs/DroidDeck/issues
 contact: dhivakar1010@gmail.com
