@@ -6,6 +6,8 @@
 
 **An ADB command center for your Linux desktop.**
 
+**Documentation:** step-by-step guides at [learn.dhivalabs.com](https://learn.dhivalabs.com/apps/droiddeck/): [install](https://learn.dhivalabs.com/apps/droiddeck/install) · [beginner guide](https://learn.dhivalabs.com/apps/droiddeck/getting-started) · [troubleshooting](https://learn.dhivalabs.com/apps/droiddeck/faq). New to the topic? Try the [Android and ADB](https://learn.dhivalabs.com/tracks/android/) learning track.
+
 ![DroidDeck — Devices tab](docs/screenshots/devices.png)
 
 DroidDeck wraps `adb` (and, optionally, `scrcpy`) in a polished Material 3 desktop
